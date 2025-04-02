@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./email-sender-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./email-sender-backend:/app
+    depends_on:
+      - rabbitmq
+    environment:
+      - PYTHONUNBUFFERED=1
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmqctl", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  worker:
+    build: ./email-sender-backend
+    command: python manage.py run_worker
+    volumes:
+      - ./email-sender-backend:/app
+    depends_on:
+      backend:
+        condition: service_started  # Default behavior, starts after backend container runs
+      rabbitmq:
+        condition: service_healthy  # Waits until RabbitMQ is healthy
+    environment:
+      - PYTHONUNBUFFERED=1
